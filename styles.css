@@ -64,6 +64,7 @@
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; user-select: none; }
 .toolbar { background: var(--bg-toolbar); padding: 10px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-sep); flex-wrap: wrap; }
 .toolbar .title { font-weight: 700; font-size: 16px; color: var(--accent); margin-right: 16px; letter-spacing: 0.5px; }
+.toolbar .title .title-text { display: inline; }
 .tool-btn { background: var(--bg-btn); color: var(--text-btn); border: 1px solid var(--border-btn); border-radius: 6px; padding: 6px 14px; cursor: grab; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
 .tool-btn:hover { background: var(--bg-btn-hover); border-color: var(--accent); color: var(--text); }
 .tool-btn:active { cursor: grabbing; }
@@ -166,9 +167,12 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body
         flex-wrap: nowrap;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        -webkit-mask-image: linear-gradient(to right, black 90%, transparent 99%);
+        mask-image: linear-gradient(to right, black 90%, transparent 99%);
     }
     .toolbar::-webkit-scrollbar { display: none; }
-    .toolbar .title { font-size: 13px; margin-right: 8px; white-space: nowrap; }
+    .toolbar .title { font-size: 0; margin-right: 4px; white-space: nowrap; }
+    .toolbar .title svg { font-size: initial; width: 20px; height: 12px; }
     .tool-btn { min-height: 40px; padding: 6px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
     .action-btn { min-height: 40px; padding: 6px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
     .separator { flex-shrink: 0; }
@@ -188,10 +192,11 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body
 }
 
 @media (max-width: 480px) {
-    .toolbar .title svg { width: 18px; height: 12px; }
+    .toolbar .title svg { width: 18px; height: 11px; }
     .tool-btn { padding: 5px 8px; font-size: 11px; min-height: 36px; }
     .action-btn { padding: 5px 8px; font-size: 11px; min-height: 36px; }
     .tool-btn .icon { font-size: 13px; }
+    .tool-btn .icon svg { width: 20px; height: 14px; }
     .trash-bin { bottom: 30px; right: 6px; width: 44px; height: 44px; font-size: 18px; }
     .gate-pin-label { display: none; }
 }
