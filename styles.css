@@ -63,7 +63,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; user-select: none; }
 .toolbar { background: var(--bg-toolbar); padding: 10px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-sep); flex-wrap: wrap; }
-.toolbar .title { font-weight: 700; font-size: 16px; color: var(--accent); margin-right: 16px; letter-spacing: 0.5px; }
+.toolbar .title { font-weight: 700; font-size: 16px; color: var(--accent); margin-right: 16px; letter-spacing: 0.5px; cursor: pointer; }
 .toolbar .title .title-text { display: inline; }
 .tool-btn { background: var(--bg-btn); color: var(--text-btn); border: 1px solid var(--border-btn); border-radius: 6px; padding: 6px 14px; cursor: grab; font-size: 13px; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
 .tool-btn:hover { background: var(--bg-btn-hover); border-color: var(--accent); color: var(--text); }
@@ -159,25 +159,47 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body
     .gate-body svg { width: 100%; height: 100%; }
 }
 
+@media (max-width: 900px) {
+    #clearBtn .btn-label { display: none; }
+}
+
+@media (max-width: 800px) {
+    #zoomDisplay { display: none; }
+}
+
+@media (max-width: 720px) {
+    #zoomFitBtn { display: none; }
+}
+
+@media (max-width: 650px) {
+    .theme-btn { display: none; }
+}
+
+@media (max-width: 580px) {
+    #modeLabel { display: none; }
+    .mode-pill { gap: 0; padding: 3px 6px; }
+}
+
+@media (max-width: 520px) {
+    #saveBtn, #loadBtn { display: none; }
+}
+
+@media (max-width: 460px) {
+    #zoomOutBtn, #zoomInBtn { display: none; }
+}
+
 @media (max-width: 768px) {
     .toolbar {
         padding: 6px 8px;
         gap: 5px;
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        -webkit-mask-image: linear-gradient(to right, black 90%, transparent 99%);
-        mask-image: linear-gradient(to right, black 90%, transparent 99%);
+        flex-wrap: wrap;
     }
-    .toolbar::-webkit-scrollbar { display: none; }
-    .toolbar .title { font-size: 0; margin-right: 4px; white-space: nowrap; }
-    .toolbar .title svg { font-size: initial; width: 20px; height: 12px; }
-    .tool-btn { min-height: 40px; padding: 6px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-    .action-btn { min-height: 40px; padding: 6px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-    .separator { flex-shrink: 0; }
-    .mode-pill { font-size: 11px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
-    .zoom-label { font-size: 11px; min-width: 30px; flex-shrink: 0; }
+    .toolbar .title { margin-right: 4px; }
+    .toolbar .title svg { width: 20px; height: 12px; }
+    .tool-btn { min-height: 40px; padding: 6px 10px; font-size: 12px; }
+    .action-btn { min-height: 40px; padding: 6px 10px; font-size: 12px; }
+    .mode-pill { font-size: 11px; padding: 2px 8px; }
+    .zoom-label { font-size: 11px; min-width: 30px; }
     .dropdown-panel { left: auto; right: 0; transform: none; }
     .dropdown-panel .tool-btn { min-width: 44px; }
     .trash-bin { bottom: 36px; right: 8px; width: 52px; height: 52px; font-size: 20px; }
@@ -187,11 +209,15 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body
     .modal-box { padding: 16px; margin: 16px; max-width: 100%; }
     .modal-box h2 { font-size: 17px; }
     .modal-box p { font-size: 13px; }
-    .gate-dropdown { flex-shrink: 0; }
     .tool-btn .icon svg { width: 22px; height: 16px; }
 }
 
 @media (max-width: 480px) {
+    .dropdown-panel .tool-btn {
+        flex: 1 1 100%;
+        min-width: 0;
+        justify-content: center;
+    }
     .toolbar .title svg { width: 18px; height: 11px; }
     .tool-btn { padding: 5px 8px; font-size: 11px; min-height: 36px; }
     .action-btn { padding: 5px 8px; font-size: 11px; min-height: 36px; }

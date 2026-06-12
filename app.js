@@ -1213,6 +1213,7 @@ function closeDropdownPanel(panel) {
     panel.style.left = '';
     panel.style.transform = '';
     panel.style.minWidth = '';
+    panel.style.maxWidth = '';
 }
 
 function toggleDropdown(trigger) {
@@ -1227,9 +1228,11 @@ function toggleDropdown(trigger) {
     }
     panel.classList.add('open');
     const rect = trigger.getBoundingClientRect();
+    const maxW = window.innerWidth < 500 ? Math.min(200, window.innerWidth - 32) : Math.min(320, window.innerWidth - 16);
+    panel.style.maxWidth = maxW + 'px';
     panel.style.position = 'fixed';
     panel.style.top = (rect.bottom + 4) + 'px';
-    panel.style.left = Math.min(rect.left + rect.width / 2, window.innerWidth - 20) + 'px';
+    panel.style.left = Math.max(8, Math.min(rect.left + rect.width / 2, window.innerWidth - maxW - 8)) + 'px';
     panel.style.transform = 'translateX(-50%)';
     panel.style.minWidth = rect.width + 'px';
 }
@@ -1279,7 +1282,9 @@ document.querySelectorAll('.dropdown-panel .tool-btn').forEach(btn => {
 });
 
 // ===== About Modal =====
-$('aboutBtn').addEventListener('click', () => $('aboutModal').style.display = 'flex');
+function showAbout() { $('aboutModal').style.display = 'flex'; }
+document.querySelector('.toolbar .title').addEventListener('click', showAbout);
+document.querySelector('.toolbar .title').addEventListener('touchend', e => { e.preventDefault(); showAbout(); });
 $('aboutCloseBtn').addEventListener('click', () => $('aboutModal').style.display = 'none');
 $('aboutModal').addEventListener('click', e => { if (e.target === e.currentTarget) $('aboutModal').style.display = 'none'; });
 
@@ -1314,7 +1319,7 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
         touchDragType = btn.dataset.gate;
         touchDragStartPos = getTouchPos(e);
         touchDragGhost = null;
-    }, { passive: true });
+    }, { passive: false });
 
     btn.addEventListener('touchmove', e => {
         if (!touchDragType) return;
@@ -1340,9 +1345,10 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
             document.body.appendChild(ghost);
             touchDragGhost = ghost;
         }
+        if (touchDragGhost) e.preventDefault();
         touchDragGhost.style.left = (pos.x - 50) + 'px';
         touchDragGhost.style.top = (pos.y - 27) + 'px';
-    }, { passive: true });
+    }, { passive: false });
 
     btn.addEventListener('touchend', e => {
         if (touchDragGhost && touchDragGhost.parentNode) {
@@ -1483,7 +1489,7 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
 
         const ws = screenToWorkspace(pos.x, pos.y);
         touchState = { type: 'marquee', startX: ws.x, startY: ws.y };
-    }, { passive: true });
+    }, { passive: false });
 
     dropZone.addEventListener('touchmove', e => {
         if (!touchState) return;
