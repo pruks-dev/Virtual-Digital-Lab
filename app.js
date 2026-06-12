@@ -1424,11 +1424,6 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
             const gateId = parseInt(gateEl.dataset.gateId);
             const gate = gates.find(g => g.id === gateId);
 
-            if (gate && gate.type === 'INPUT') {
-                touchState = { type: 'tap-input', gateId };
-                return;
-            }
-
             if (!gate) return;
 
             longPressTimer = setTimeout(() => {
@@ -1562,6 +1557,17 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
         const pos = getTouchPos(e);
 
         if (touchState.type === 'drag') {
+            if (!touchMoved && touchState.gateIds.length === 1) {
+                const gate = gates.find(g => g.id === touchState.gateIds[0]);
+                if (gate && gate.type === 'INPUT') {
+                    const el = dropZone.querySelector(`.gate[data-gate-id="${gate.id}"]`);
+                    if (el) el.style.zIndex = 10;
+                    toggleInputGate(gate.id);
+                    touchState = null;
+                    touchMoved = false;
+                    return;
+                }
+            }
             const binEl = $('trashBin');
             const overBin = binEl && binEl.classList.contains('drag-over');
             if (overBin) {
@@ -1590,8 +1596,6 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
                 }
                 updateSelectionUI();
             }
-        } else if (touchState.type === 'tap-input') {
-            if (!touchMoved) toggleInputGate(touchState.gateId);
         }
         touchState = null;
         touchMoved = false;
