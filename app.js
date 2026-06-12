@@ -29,6 +29,15 @@ let mouseDownPos = null;
 let marqueeState = null;
 let zoomLevel = 1;
 
+// ===== Touch State =====
+let touchHandled = false;
+let longPressTimer = null;
+let pinchStartDist = null;
+let pinchStartZoom = null;
+let touchDragType = null;
+let touchDragGhost = null;
+let lastTouchEnd = 0;
+
 // ===== History (Undo/Redo) =====
 const MAX_HISTORY = 50;
 let undoStack = [];
@@ -686,6 +695,7 @@ dropZone.addEventListener('drop', e => {
 let isDragging = false;
 
 dropZone.addEventListener('mousedown', e => {
+    if (touchHandled) { touchHandled = false; return; }
     const wirePath = e.target.closest('.wire[data-wire-id]');
     if (!wirePath && selectedWireId !== null) {
         selectedWireId = null;
@@ -759,6 +769,7 @@ dropZone.addEventListener('mousedown', e => {
 });
 
 document.addEventListener('mousemove', e => {
+    if (touchHandled) return;
     if (isDragging && dragState) {
         if (mouseDownPos && (Math.abs(e.clientX - mouseDownPos.x) > 4 || Math.abs(e.clientY - mouseDownPos.y) > 4)) {
             wasDragged = true;
@@ -822,6 +833,7 @@ document.addEventListener('mousemove', e => {
 });
 
 document.addEventListener('mouseup', e => {
+    if (touchHandled) return;
     if (isDragging && dragState) {
         const binEl = $('trashBin');
         const overBin = binEl && binEl.classList.contains('drag-over');
@@ -866,6 +878,7 @@ document.addEventListener('mouseup', e => {
 
 // ===== Wire interaction =====
 dropZone.addEventListener('click', e => {
+    if (touchHandled) { touchHandled = false; return; }
     const wirePath = e.target.closest('.wire[data-wire-id]');
     if (wirePath) {
         const id = parseInt(wirePath.dataset.wireId);
@@ -1256,6 +1269,308 @@ $('themeBtn').addEventListener('click', () => {
         localStorage.setItem('dcs-theme', 'light');
     }
 });
+
+// ===== Touch Support =====
+function getTouchPos(e) {
+    const t = e.changedTouches[0];
+    return { x: t.clientX, y: t.clientY };
+}
+
+// Toolbar drag via touch
+document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
+    btn.addEventListener('touchstart', e => {
+        touchHandled = true;
+        touchDragType = btn.dataset.gate;
+        const ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.style.display = 'flex';
+        ghost.textContent = touchDragType;
+        const pos = getTouchPos(e);
+        ghost.style.left = (pos.x - 50) + 'px';
+        ghost.style.top = (pos.y - 27) + 'px';
+        document.body.appendChild(ghost);
+        touchDragGhost = ghost;
+    }, { passive: true });
+
+    btn.addEventListener('touchmove', e => {
+        if (!touchDragGhost) return;
+        e.preventDefault();
+        const pos = getTouchPos(e);
+        touchDragGhost.style.left = (pos.x - 50) + 'px';
+        touchDragGhost.style.top = (pos.y - 27) + 'px';
+    }, { passive: false });
+
+    btn.addEventListener('touchend', e => {
+        if (!touchDragGhost || !touchDragType) return;
+        if (touchDragGhost.parentNode) touchDragGhost.parentNode.removeChild(touchDragGhost);
+        touchDragGhost = null;
+        const pos = getTouchPos(e);
+        const target = document.elementFromPoint(pos.x, pos.y);
+        if (!target || !target.closest('.workspace-drop-zone')) {
+            touchDragType = null;
+            return;
+        }
+        if (!GATE_TYPES[touchDragType]) { touchDragType = null; return; }
+        const SNAP = 24;
+        const ws = screenToWorkspace(pos.x, pos.y);
+        const x = Math.round((ws.x - 45) / SNAP) * SNAP;
+        const y = Math.round((ws.y - 32) / SNAP) * SNAP;
+        const gate = {
+            id: nextGateId++, type: touchDragType,
+            x: Math.max(0, x), y: Math.max(0, y),
+            inputValues: new Array(GATE_TYPES[touchDragType].inputs).fill(0), output: 0
+        };
+        if (touchDragType === 'DFF' || touchDragType === 'JKFF') { gate.storedValue = 0; gate.prevClk = 0; }
+        pushHistory();
+        gates.push(gate);
+        renderAll();
+        simulate();
+        $('modeIndicator').textContent = 'Select mode — click a pin to start wiring';
+        touchDragType = null;
+    }, { passive: true });
+});
+
+// Workspace touch interactions
+(function() {
+    let touchState = null;
+    let touchStartPos = null;
+    let touchMoved = false;
+
+    dropZone.addEventListener('touchstart', e => {
+        if (e.touches.length > 1) return;
+        touchHandled = true;
+        touchMoved = false;
+        const pos = getTouchPos(e);
+        touchStartPos = pos;
+        const target = document.elementFromPoint(pos.x, pos.y);
+
+        if (!target) return;
+
+        const wirePath = target.closest('.wire[data-wire-id]');
+
+        if (!wirePath && selectedWireId !== null) {
+            selectedWireId = null;
+            renderWires();
+        }
+
+        const pinEl = target.closest('.pin');
+        if (pinEl) {
+            e.preventDefault();
+            const info = {
+                gateId: parseInt(pinEl.dataset.gateId),
+                pinIdx: parseInt(pinEl.dataset.pinIdx),
+                isOutput: pinEl.dataset.isOutput === 'true'
+            };
+            handlePinClick(info, { stopPropagation: () => {}, clientX: pos.x, clientY: pos.y });
+            return;
+        }
+
+        const gateEl = target.closest('.gate');
+        if (gateEl) {
+            e.preventDefault();
+            const gateId = parseInt(gateEl.dataset.gateId);
+            const gate = gates.find(g => g.id === gateId);
+
+            if (gate && gate.type === 'INPUT') {
+                touchState = { type: 'tap-input', gateId };
+                return;
+            }
+
+            if (!gate) return;
+
+            longPressTimer = setTimeout(() => {
+                if (!touchMoved) {
+                    showGateContextMenu(pos.x, pos.y, gateId);
+                    longPressTimer = null;
+                }
+            }, 500);
+
+            if (!selectedGateIds.has(gateId)) {
+                selectedGateIds.clear();
+                selectedGateIds.add(gateId);
+            }
+            updateSelectionUI();
+            hideContextMenu();
+            pushHistory();
+
+            const ws = screenToWorkspace(pos.x, pos.y);
+            const ids = [...selectedGateIds];
+            touchState = {
+                type: 'drag',
+                gateIds: ids,
+                origins: ids.map(id => {
+                    const g = gates.find(gg => gg.id === id);
+                    return { id, x: g ? g.x : 0, y: g ? g.y : 0 };
+                }),
+                startX: ws.x,
+                startY: ws.y
+            };
+            gateEl.style.zIndex = 20;
+            return;
+        }
+
+        if (wirePath) {
+            e.preventDefault();
+            const id = parseInt(wirePath.dataset.wireId);
+            const now = Date.now();
+            if (selectedWireId === id && now - lastTouchEnd < 400) {
+                deleteWire(id);
+                lastTouchEnd = 0;
+                return;
+            }
+            selectedWireId = id;
+            selectedGateIds.clear();
+            updateSelectionUI();
+            hideContextMenu();
+            renderWires();
+            lastTouchEnd = now;
+            return;
+        }
+
+        if (wiringState) {
+            cancelWiring();
+            selectedGateIds.clear();
+            updateSelectionUI();
+            hideContextMenu();
+            return;
+        }
+
+        const ws = screenToWorkspace(pos.x, pos.y);
+        touchState = { type: 'marquee', startX: ws.x, startY: ws.y };
+    }, { passive: true });
+
+    dropZone.addEventListener('touchmove', e => {
+        if (!touchState) return;
+        if (longPressTimer) {
+            const pos = getTouchPos(e);
+            if (Math.abs(pos.x - touchStartPos.x) > 10 || Math.abs(pos.y - touchStartPos.y) > 10) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+        e.preventDefault();
+        const pos = getTouchPos(e);
+        touchMoved = true;
+
+        if (touchState.type === 'drag') {
+            const SNAP = 24;
+            const ws = screenToWorkspace(pos.x, pos.y);
+            const dx = Math.round((ws.x - touchState.startX) / SNAP) * SNAP;
+            const dy = Math.round((ws.y - touchState.startY) / SNAP) * SNAP;
+            for (const origin of touchState.origins) {
+                const gate = gates.find(g => g.id === origin.id);
+                if (gate) {
+                    gate.x = Math.max(0, origin.x + dx);
+                    gate.y = Math.max(0, origin.y + dy);
+                    const el = dropZone.querySelector(`.gate[data-gate-id="${gate.id}"]`);
+                    if (el) {
+                        el.style.left = gate.x + 'px';
+                        el.style.top = gate.y + 'px';
+                    }
+                }
+            }
+            renderWires();
+
+            let anyOverlap = false;
+            for (const id of touchState.gateIds) {
+                const el = dropZone.querySelector(`.gate[data-gate-id="${id}"]`);
+                if (!el) continue;
+                const b = $('trashBin');
+                if (!b) continue;
+                const gr = el.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                if (gr.right > br.left && gr.left < br.right && gr.bottom > br.top && gr.top < br.bottom) {
+                    anyOverlap = true; break;
+                }
+            }
+            const binEl = $('trashBin');
+            if (binEl) binEl.classList.toggle('drag-over', anyOverlap);
+        } else if (touchState.type === 'marquee') {
+            const ws = screenToWorkspace(pos.x, pos.y);
+            const overlay = $('marqueeOverlay');
+            const minX = Math.min(touchState.startX, ws.x);
+            const minY = Math.min(touchState.startY, ws.y);
+            const maxX = Math.max(touchState.startX, ws.x);
+            const maxY = Math.max(touchState.startY, ws.y);
+            overlay.style.left = minX + 'px';
+            overlay.style.top = minY + 'px';
+            overlay.style.width = (maxX - minX) + 'px';
+            overlay.style.height = (maxY - minY) + 'px';
+            overlay.style.display = 'block';
+        }
+    }, { passive: false });
+
+    dropZone.addEventListener('touchend', e => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        if (!touchState) return;
+        const pos = getTouchPos(e);
+
+        if (touchState.type === 'drag') {
+            const binEl = $('trashBin');
+            const overBin = binEl && binEl.classList.contains('drag-over');
+            if (overBin) {
+                if (binEl) binEl.classList.remove('drag-over');
+                deleteGates(touchState.gateIds);
+            } else {
+                for (const id of touchState.gateIds) {
+                    const el = dropZone.querySelector(`.gate[data-gate-id="${id}"]`);
+                    if (el) el.style.zIndex = 10;
+                }
+                renderWires();
+            }
+        } else if (touchState.type === 'marquee') {
+            const overlay = $('marqueeOverlay');
+            overlay.style.display = 'none';
+            if (touchMoved) {
+                const ws = screenToWorkspace(pos.x, pos.y);
+                const minX = Math.min(touchState.startX, ws.x);
+                const minY = Math.min(touchState.startY, ws.y);
+                const maxX = Math.max(touchState.startX, ws.x);
+                const maxY = Math.max(touchState.startY, ws.y);
+                for (const gate of gates) {
+                    if (gate.x < maxX && gate.x + 90 > minX && gate.y < maxY && gate.y + 64 > minY) {
+                        selectedGateIds.add(gate.id);
+                    }
+                }
+                updateSelectionUI();
+            }
+        } else if (touchState.type === 'tap-input') {
+            if (!touchMoved) toggleInputGate(touchState.gateId);
+        }
+        touchState = null;
+        touchMoved = false;
+    }, { passive: true });
+})();
+
+// Pinch-to-zoom
+workspace.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+        pinchStartZoom = zoomLevel;
+    }
+}, { passive: true });
+
+workspace.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinchStartDist) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        setZoom(pinchStartZoom * (dist / pinchStartDist));
+    }
+}, { passive: false });
+
+workspace.addEventListener('touchend', e => {
+    if (e.touches.length < 2) {
+        pinchStartDist = null;
+        pinchStartZoom = null;
+    }
+}, { passive: true });
 
 // ===== Init =====
 setZoom(1);
