@@ -1206,13 +1206,49 @@ function renderToolbarIcons() {
 }
 
 // ===== Dropdown Palettes =====
+function closeDropdownPanel(panel) {
+    panel.classList.remove('open');
+    panel.style.position = '';
+    panel.style.top = '';
+    panel.style.left = '';
+    panel.style.transform = '';
+    panel.style.minWidth = '';
+}
+
+function toggleDropdown(trigger) {
+    const panel = trigger.closest('.gate-dropdown').querySelector('.dropdown-panel');
+    const wasOpen = panel.classList.contains('open');
+    document.querySelectorAll('.dropdown-panel.open').forEach(p => {
+        if (p !== panel) closeDropdownPanel(p);
+    });
+    if (wasOpen) {
+        closeDropdownPanel(panel);
+        return;
+    }
+    panel.classList.add('open');
+    const rect = trigger.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = (rect.bottom + 4) + 'px';
+    panel.style.left = Math.min(rect.left + rect.width / 2, window.innerWidth - 20) + 'px';
+    panel.style.transform = 'translateX(-50%)';
+    panel.style.minWidth = rect.width + 'px';
+}
+
 document.addEventListener('click', e => {
     const trigger = e.target.closest('.dropdown-trigger');
-    document.querySelectorAll('.dropdown-panel.open').forEach(p => p.classList.remove('open'));
+    const panel = e.target.closest('.dropdown-panel');
     if (trigger) {
-        const panel = trigger.closest('.gate-dropdown').querySelector('.dropdown-panel');
-        panel.classList.add('open');
+        toggleDropdown(trigger);
+    } else if (!panel) {
+        document.querySelectorAll('.dropdown-panel.open').forEach(p => closeDropdownPanel(p));
     }
+});
+
+document.querySelectorAll('.dropdown-trigger').forEach(btn => {
+    btn.addEventListener('touchend', e => {
+        e.preventDefault();
+        toggleDropdown(e.currentTarget);
+    }, { passive: false });
 });
 
 function placeGateAtCenter(gateType) {
@@ -1244,7 +1280,8 @@ document.querySelectorAll('.dropdown-panel .tool-btn').forEach(btn => {
         placeGateAtCenter(gateType);
     });
     btn.addEventListener('dragend', e => {
-        btn.closest('.dropdown-panel').classList.remove('open');
+        const panel = btn.closest('.dropdown-panel');
+        if (panel) closeDropdownPanel(panel);
     });
 });
 
