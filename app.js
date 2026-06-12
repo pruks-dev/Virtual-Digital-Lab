@@ -1244,13 +1244,6 @@ document.addEventListener('click', e => {
     }
 });
 
-document.querySelectorAll('.dropdown-trigger').forEach(btn => {
-    btn.addEventListener('touchend', e => {
-        e.preventDefault();
-        toggleDropdown(e.currentTarget);
-    }, { passive: false });
-});
-
 function placeGateAtCenter(gateType) {
     if (!GATE_TYPES[gateType]) return;
     const wr = workspace.getBoundingClientRect();
