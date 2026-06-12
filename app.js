@@ -1390,6 +1390,7 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
 
     dropZone.addEventListener('touchstart', e => {
         if (e.touches.length > 1) return;
+        e.preventDefault();
         touchHandled = true;
         touchMoved = false;
         const pos = getTouchPos(e);
@@ -1592,6 +1593,17 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
         } else if (touchState.type === 'tap-input') {
             if (!touchMoved) toggleInputGate(touchState.gateId);
         }
+        touchState = null;
+        touchMoved = false;
+    }, { passive: true });
+
+    dropZone.addEventListener('touchcancel', e => {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        if (touchDragGhost && touchDragGhost.parentNode) {
+            touchDragGhost.parentNode.removeChild(touchDragGhost);
+            touchDragGhost = null;
+        }
+        $('marqueeOverlay').style.display = 'none';
         touchState = null;
         touchMoved = false;
     }, { passive: true });
