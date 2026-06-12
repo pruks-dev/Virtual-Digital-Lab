@@ -36,6 +36,7 @@ let pinchStartDist = null;
 let pinchStartZoom = null;
 let touchDragType = null;
 let touchDragGhost = null;
+let touchDragStartPos = null;
 let lastTouchEnd = 0;
 
 // ===== History (Undo/Redo) =====
@@ -1276,34 +1277,49 @@ function getTouchPos(e) {
     return { x: t.clientX, y: t.clientY };
 }
 
-// Toolbar drag via touch
+// Toolbar drag via touch — detects downward motion vs horizontal scroll
 document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
     btn.addEventListener('touchstart', e => {
         touchHandled = true;
         touchDragType = btn.dataset.gate;
-        const ghost = document.createElement('div');
-        ghost.className = 'drag-ghost';
-        ghost.style.display = 'flex';
-        ghost.textContent = touchDragType;
-        const pos = getTouchPos(e);
-        ghost.style.left = (pos.x - 50) + 'px';
-        ghost.style.top = (pos.y - 27) + 'px';
-        document.body.appendChild(ghost);
-        touchDragGhost = ghost;
+        touchDragStartPos = getTouchPos(e);
+        touchDragGhost = null;
     }, { passive: true });
 
     btn.addEventListener('touchmove', e => {
-        if (!touchDragGhost) return;
-        e.preventDefault();
+        if (!touchDragType) return;
         const pos = getTouchPos(e);
+        const dx = Math.abs(pos.x - touchDragStartPos.x);
+        const dy = Math.abs(pos.y - touchDragStartPos.y);
+        if (dy < 8 && dx < 8) return;
+        if (dx > dy * 1.5) {
+            touchDragType = null;
+            if (touchDragGhost) {
+                if (touchDragGhost.parentNode) touchDragGhost.parentNode.removeChild(touchDragGhost);
+                touchDragGhost = null;
+            }
+            return;
+        }
+        if (!touchDragGhost) {
+            const ghost = document.createElement('div');
+            ghost.className = 'drag-ghost';
+            ghost.style.display = 'flex';
+            ghost.textContent = touchDragType;
+            ghost.style.left = (pos.x - 50) + 'px';
+            ghost.style.top = (pos.y - 27) + 'px';
+            document.body.appendChild(ghost);
+            touchDragGhost = ghost;
+        }
         touchDragGhost.style.left = (pos.x - 50) + 'px';
         touchDragGhost.style.top = (pos.y - 27) + 'px';
-    }, { passive: false });
+    }, { passive: true });
 
     btn.addEventListener('touchend', e => {
-        if (!touchDragGhost || !touchDragType) return;
-        if (touchDragGhost.parentNode) touchDragGhost.parentNode.removeChild(touchDragGhost);
-        touchDragGhost = null;
+        if (touchDragGhost && touchDragGhost.parentNode) {
+            touchDragGhost.parentNode.removeChild(touchDragGhost);
+            touchDragGhost = null;
+        }
+        if (!touchDragType) return;
         const pos = getTouchPos(e);
         const target = document.elementFromPoint(pos.x, pos.y);
         if (!target || !target.closest('.workspace-drop-zone')) {
