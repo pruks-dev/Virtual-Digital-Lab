@@ -1327,14 +1327,6 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
         const dx = Math.abs(pos.x - touchDragStartPos.x);
         const dy = Math.abs(pos.y - touchDragStartPos.y);
         if (dy < 8 && dx < 8) return;
-        if (dx > dy * 1.5) {
-            touchDragType = null;
-            if (touchDragGhost) {
-                if (touchDragGhost.parentNode) touchDragGhost.parentNode.removeChild(touchDragGhost);
-                touchDragGhost = null;
-            }
-            return;
-        }
         if (!touchDragGhost) {
             const ghost = document.createElement('div');
             ghost.className = 'drag-ghost';
@@ -1415,6 +1407,9 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
                 isOutput: pinEl.dataset.isOutput === 'true'
             };
             handlePinClick(info, { stopPropagation: () => {}, clientX: pos.x, clientY: pos.y });
+            if (wiringState) {
+                touchState = { type: 'wiring-drag' };
+            }
             return;
         }
 
@@ -1472,6 +1467,13 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
             hideContextMenu();
             renderWires();
             lastTouchEnd = now;
+            longPressTimer = setTimeout(() => {
+                if (!touchMoved) {
+                    const wire = wires.find(w => w.id === id);
+                    if (wire) showWireContextMenu(pos.x, pos.y, wire);
+                    longPressTimer = null;
+                }
+            }, 500);
             return;
         }
 
@@ -1488,7 +1490,6 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
     }, { passive: false });
 
     dropZone.addEventListener('touchmove', e => {
-        if (!touchState) return;
         if (longPressTimer) {
             const pos = getTouchPos(e);
             if (Math.abs(pos.x - touchStartPos.x) > 10 || Math.abs(pos.y - touchStartPos.y) > 10) {
@@ -1496,6 +1497,7 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
                 longPressTimer = null;
             }
         }
+        if (!touchState) return;
         e.preventDefault();
         const pos = getTouchPos(e);
         touchMoved = true;
@@ -1545,6 +1547,9 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
             overlay.style.width = (maxX - minX) + 'px';
             overlay.style.height = (maxY - minY) + 'px';
             overlay.style.display = 'block';
+        } else if (touchState.type === 'wiring-drag') {
+            tempWireEnd = screenToWorkspace(pos.x, pos.y);
+            renderWires();
         }
     }, { passive: false });
 
@@ -1555,6 +1560,25 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
         }
         if (!touchState) return;
         const pos = getTouchPos(e);
+
+        if (touchState.type === 'wiring-drag') {
+            if (touchMoved) {
+                const target = document.elementFromPoint(pos.x, pos.y);
+                const pinEl = target ? target.closest('.pin') : null;
+                if (pinEl) {
+                    handlePinClick({
+                        gateId: parseInt(pinEl.dataset.gateId),
+                        pinIdx: parseInt(pinEl.dataset.pinIdx),
+                        isOutput: pinEl.dataset.isOutput === 'true'
+                    }, { stopPropagation: () => {} });
+                } else {
+                    cancelWiring();
+                }
+            }
+            touchState = null;
+            touchMoved = false;
+            return;
+        }
 
         if (touchState.type === 'drag') {
             if (!touchMoved && touchState.gateIds.length === 1) {
@@ -1594,6 +1618,9 @@ document.querySelectorAll('.tool-btn[draggable]').forEach(btn => {
                         selectedGateIds.add(gate.id);
                     }
                 }
+                updateSelectionUI();
+            } else {
+                selectedGateIds.clear();
                 updateSelectionUI();
             }
         }
